@@ -11,43 +11,76 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import axios from "axios";
+
+// axios 인스턴스 생성
+const api = axios.create({
+  baseURL: "http://localhost",
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
 
 const LoginPage = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberPassword, setMemberPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  
   const navigate = useNavigate();
   const { isLoggedIn, login } = useAuth();
   const { darkMode } = useTheme();
 
-  // 이미 로그인되어 있으면 홈으로 리다이렉트
   useEffect(() => {
     if (isLoggedIn) {
       navigate("/");
     }
   }, [isLoggedIn, navigate]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     // 간단한 유효성 검사
-    if (!email || !password) {
+    if (!memberEmail || !memberPassword) {
       setError("이메일과 비밀번호를 모두 입력해주세요.");
+      setLoading(false);
       return;
     }
 
-    // 테스트용 로그인 처리 (실제 구현에서는 API 호출 필요)
     try {
-      console.log("로그인 시도:", { email });
-
-      // 테스트용으로 항상 로그인 성공 처리
-      login({ email, name: email.split("@")[0] });
-
+      // 생성한 api 인스턴스로 요청
+      const response = await api.post("/auth/login", {
+        memberEmail,
+        memberPassword
+      });
+      
+      // 응답에서 토큰과 사용자 정보 추출
+      const { accessToken, refreshToken, memberName } = response.data;
+      
+      // 토큰을 로컬 스토리지에 저장
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      
+      login({ 
+        email: memberEmail, 
+        name: memberName || memberEmail.split('@')[0],
+        token: accessToken
+      });
+      
       // 로그인 성공 후 홈으로 리다이렉트
       navigate("/");
     } catch (err) {
-      setError("로그인에 실패했습니다. 다시 시도해주세요.");
+      if (err.response) {
+        setError(err.response.data?.message || "로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.");
+      } else if (err.request) {
+        setError("서버에서 응답이 없습니다. 서버 상태를 확인해주세요.");
+      } else {
+        setError("요청 중 오류가 발생했습니다.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,8 +100,8 @@ const LoginPage = () => {
                   <Form.Control
                     type="email"
                     placeholder="이메일을 입력하세요"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={memberEmail}
+                    onChange={(e) => setMemberEmail(e.target.value)}
                     required
                   />
                 </Form.Group>
@@ -78,22 +111,26 @@ const LoginPage = () => {
                   <Form.Control
                     type="password"
                     placeholder="비밀번호를 입력하세요"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={memberPassword}
+                    onChange={(e) => setMemberPassword(e.target.value)}
                     required
                   />
                 </Form.Group>
 
                 <div className="d-grid gap-2">
-                  <Button variant="primary" type="submit">
-                    로그인
+                  <Button 
+                    variant="primary" 
+                    type="submit"
+                    disabled={loading}
+                  >
+                    {loading ? "로그인 중..." : "로그인"}
                   </Button>
                 </div>
               </Form>
 
               <div className="text-center mt-4">
                 <p className={darkMode ? "text-light" : ""}>
-                  계정이 없으신가요?!? <Link to="/users/signup">회원가입</Link>
+                  계정이 없으신가요? <Link to="/users/signup">회원가입</Link>
                 </p>
               </div>
             </Card.Body>
