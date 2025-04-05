@@ -12,6 +12,13 @@ node_modules/
 .pnp
 .pnp.js
 
+# Dependency directories
+node_modules/
+dist/
+build/
+coverage/
+
+
 # Build output
 build/
 dist/
