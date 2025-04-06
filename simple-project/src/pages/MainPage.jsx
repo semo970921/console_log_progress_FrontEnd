@@ -11,6 +11,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import axios from "axios";
 
 const MainPage = () => {
   const { isLoggedIn } = useAuth();
@@ -29,7 +30,7 @@ const MainPage = () => {
     "Documentation is a love letter that you write to your future self";
 
   // 혼잣말 저장 핸들러
-  const handleSaveMonologue = (e) => {
+  const handleSaveMonologue = async (e) => {
     e.preventDefault();
 
     if (!content.trim()) {
@@ -40,20 +41,48 @@ const MainPage = () => {
     setError("");
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      console.log("혼잣말 저장:", { content, file, weather });
+    // FormData 객체 생성
+    const formData = new FormData();
+    formData.append("content", content);
+    if (file) {
+      formData.append("file", file);
+    }
+
+    try {
+      // 로컬 스토리지에서 토큰 가져오기
+      const token = localStorage.getItem('accessToken');
+      
+      // 백엔드 서버 주소를 직접 지정하여 API 호출
+      const response = await axios.post("http://localhost:80/api/monologues/create", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          // 토큰이 있으면 Authorization 헤더에 추가
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+      });
+
+      console.log("API 응답:", response);
+
       setSuccess("혼잣말이 성공적으로 저장되었습니다😊");
       setContent("");
       setFile(null);
-      setIsSubmitting(false);
 
+      // 파일 입력 필드 초기화
       const fileInput = document.getElementById("file-upload");
       if (fileInput) fileInput.value = "";
-
+      
+      // 3초 후 성공 메시지 숨기기
       setTimeout(() => {
         setSuccess("");
       }, 3000);
-    }, 1000);
+    } catch (err) {
+      console.error("혼잣말 저장 중 오류:", err);
+      setError(
+        err.response?.data || "저장 중 오류가 발생했습니다. 다시 시도해주세요."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -148,8 +177,78 @@ const MainPage = () => {
                   <p className="mb-3">
                     혼잣말을 기록하려면 로그인이 필요합니다.
                   </p>
+                  <div>
+                    <Button
+                      as={Link}
+                      to="/users/login"
+                      variant="primary"
+                      className="me-2"
+                    >
+                      로그인
+                    </Button>
+                    <Button
+                      as={Link}
+                      to="/users/signup"
+                      variant="outline-primary"
+                    >
+                      회원가입
+                    </Button>
+                  </div>
                 </div>
               )}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <Row className="g-4">
+        <Col md={4}>
+          <Card className={`h-100 shadow-sm ${darkMode ? "bg-dark text-light" : ""}`}>
+            <Card.Body className="d-flex flex-column">
+              <h4>내 혼잣말 기록</h4>
+              <p>지금까지 작성한 혼잣말을 모아볼 수 있습니다.</p>
+              <Button
+                as={Link}
+                to="/monologues"
+                variant={darkMode ? "outline-light" : "outline-primary"}
+                className="mt-auto"
+              >
+                기록 보기
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col md={4}>
+          <Card className={`h-100 shadow-sm ${darkMode ? "bg-dark text-light" : ""}`}>
+            <Card.Body className="d-flex flex-column">
+              <h4>혼잣말 작성하기</h4>
+              <p>조금 더 여유롭게 혼잣말을 작성하고 싶으신가요?</p>
+              <Button
+                as={Link}
+                to="/monologues/write"
+                variant={darkMode ? "outline-light" : "outline-primary"}
+                className="mt-auto"
+              >
+                작성 페이지로
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+
+        <Col md={4}>
+          <Card className={`h-100 shadow-sm ${darkMode ? "bg-dark text-light" : ""}`}>
+            <Card.Body className="d-flex flex-column">
+              <h4>랜덤 회고</h4>
+              <p>과거에 작성한 혼잣말을 랜덤으로 읽고 되돌아보세요.</p>
+              <Button
+                as={Link}
+                to="/monologues/random"
+                variant={darkMode ? "outline-light" : "outline-primary"}
+                className="mt-auto"
+              >
+                랜덤 회고하기
+              </Button>
             </Card.Body>
           </Card>
         </Col>

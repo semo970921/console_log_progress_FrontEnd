@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Button, Alert } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Alert, Spinner } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import axios from "axios";
 
 const RandomMonologuePage = () => {
   const [monologue, setMonologue] = useState(null);
@@ -25,54 +26,31 @@ const RandomMonologuePage = () => {
     setError("");
 
     try {
-      // 실제 구현에서는 API 호출
-      // 테스트용 더미 데이터 배열
-      const dummyData = [
-        {
-          id: 1,
-          content: "오늘 React Router를 처음 사용해봤는데 개빡쳐!!!!!!!!!!.",
-          createdAt: "2025-03-29T15:30:00",
-          weather: "맑음",
-          hasAttachment: true,
-          attachmentUrl: "#",
-        },
-        {
-          id: 2,
-          content:
-            "Context API를 사용해서 전역 상태 관리 하는가는 안배웠는디??",
-          createdAt: "2025-03-28T11:20:00",
-          weather: "흐림",
-          hasAttachment: false,
-        },
-        {
-          id: 3,
-          content: "CSS는 늘 나를 화나게 한다.",
-          createdAt: "2025-03-27T09:45:00",
-          weather: "비",
-          hasAttachment: false,
-        },
-        {
-          id: 4,
-          content: "예외처리는 어려워.",
-          createdAt: "2025-03-26T16:10:00",
-          weather: "맑음",
-          hasAttachment: true,
-          attachmentUrl: "#",
-        },
-        {
-          id: 5,
-          content: "React Bootstrap은 신이여.",
-          createdAt: "2025-03-25T13:50:00",
-          weather: "구름조금",
-          hasAttachment: false,
-        },
-      ];
-
-      // 랜덤으로 하나 선택
-      const randomIndex = Math.floor(Math.random() * dummyData.length);
-      setMonologue(dummyData[randomIndex]);
+      // 로컬 스토리지에서 토큰 가져오기
+      const token = localStorage.getItem('accessToken');
+      
+      // 백엔드에서 모든 혼잣말 목록 가져오기
+      const response = await axios.get("http://localhost:80/api/monologues/list", {
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        }
+      });
+      
+      console.log("혼잣말 목록 응답:", response.data);
+      
+      // 혼잣말이 있는지 확인
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        // 랜덤으로 하나 선택
+        const randomIndex = Math.floor(Math.random() * response.data.length);
+        setMonologue(response.data[randomIndex]);
+      } else {
+        // 혼잣말이 없는 경우
+        setMonologue(null);
+      }
+      
       setLoading(false);
     } catch (err) {
+      console.error("혼잣말을 불러오는 중 오류 발생:", err);
       setError("혼잣말을 불러오는 중 오류가 발생했습니다.");
       setLoading(false);
     }
@@ -123,7 +101,10 @@ const RandomMonologuePage = () => {
           {loading ? (
             <Card className="shadow-sm">
               <Card.Body className="text-center py-5">
-                <p>혼잣말을 불러오는 중...</p>
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">불러오는 중...</span>
+                </Spinner>
+                <p className="mt-3">혼잣말을 불러오는 중...</p>
               </Card.Body>
             </Card>
           ) : monologue ? (
@@ -144,7 +125,7 @@ const RandomMonologuePage = () => {
                       </small>
                     </p>
                   </div>
-                  {monologue.hasAttachment && (
+                  {monologue.attachmentNo && (
                     <span className="badge bg-secondary">첨부파일</span>
                   )}
                 </div>
@@ -165,7 +146,7 @@ const RandomMonologuePage = () => {
                   <Button
                     variant="outline-secondary"
                     as={Link}
-                    to={`/monologues/${monologue.id}`}
+                    to={`/monologues/${monologue.monologueNo}`}
                   >
                     상세보기
                   </Button>

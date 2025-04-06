@@ -8,16 +8,20 @@ import {
   Form,
   ListGroup,
   Badge,
+  Spinner,
+  Alert
 } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import axios from "axios";
 
 const MonologueListPage = () => {
   const [monologues, setMonologues] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
 
@@ -27,57 +31,29 @@ const MonologueListPage = () => {
     }
   }, [isLoggedIn, navigate]);
 
-  // 혼잣말 목록 가져오기 (실제 구현에서는 API 호출)
+  // 혼잣말 목록 가져오기
   useEffect(() => {
-    // API 호출 이런식으로~~~ 백엔드로~~~
     const fetchMonologues = async () => {
       try {
-        // 서버에서 데이터를 가져오는 대신 더미 데이터 사용
-        const dummyData = [
-          {
-            id: 1,
-            content: "오늘 React Router를 처음 사용해봤는데 개빡쳐!!!!!!!!!!.",
-            createdAt: "2025-03-29T15:30:00",
-            weather: "맑음",
-            hasAttachment: true,
-            attachmentUrl: "#",
-          },
-          {
-            id: 2,
-            content:
-              "Context API를 사용해서 전역 상태 관리 하는가는 안배웠는디??",
-            createdAt: "2025-03-28T11:20:00",
-            weather: "흐림",
-            hasAttachment: false,
-          },
-          {
-            id: 3,
-            content: "CSS는 늘 나를 화나게 한다.",
-            createdAt: "2025-03-27T09:45:00",
-            weather: "비",
-            hasAttachment: false,
-          },
-          {
-            id: 4,
-            content: "예외처리는 어려워.",
-            createdAt: "2025-03-26T16:10:00",
-            weather: "맑음",
-            hasAttachment: true,
-            attachmentUrl: "#",
-          },
-          {
-            id: 5,
-            content: "React Bootstrap은 신이여.",
-            createdAt: "2025-03-25T13:50:00",
-            weather: "구름조금",
-            hasAttachment: false,
-          },
-        ];
-
-        setMonologues(dummyData);
+        console.log("혼잣말 목록 요청 시작");
+        
+        // 로컬 스토리지에서 토큰 가져오기
+        const token = localStorage.getItem('accessToken');
+        
+        // 백엔드 서버 주소를 직접 지정하여 API 호출
+        const response = await axios.get("http://localhost:80/api/monologues/list", {
+          headers: {
+            // 토큰이 있으면 Authorization 헤더에 추가
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          }
+        });
+        
+        console.log("혼잣말 목록 응답:", response.data);
+        setMonologues(response.data || []);
         setLoading(false);
       } catch (error) {
         console.error("혼잣말 데이터를 가져오는 중 오류 발생:", error);
+        setError("데이터를 불러오는 중 오류가 발생했습니다.");
         setLoading(false);
       }
     };
@@ -86,20 +62,26 @@ const MonologueListPage = () => {
   }, []);
 
   // 검색 필터링
-  const filteredMonologues = monologues.filter((monologue) =>
-    monologue.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMonologues = Array.isArray(monologues) 
+    ? monologues.filter((monologue) =>
+        monologue?.content?.toLowerCase().includes(searchTerm.toLowerCase()) || false
+      )
+    : [];
 
   // 날짜 포맷 함수
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   return (
@@ -126,7 +108,14 @@ const MonologueListPage = () => {
               </Row>
 
               {loading ? (
-                <p className="text-center py-4">기록을 불러오는 중...</p>
+                <div className="text-center py-4">
+                  <Spinner animation="border" role="status">
+                    <span className="visually-hidden">불러오는 중...</span>
+                  </Spinner>
+                  <p className="mt-2">기록을 불러오는 중...</p>
+                </div>
+              ) : error ? (
+                <Alert variant="danger">{error}</Alert>
               ) : filteredMonologues.length === 0 ? (
                 <p className="text-center py-4">
                   {searchTerm
@@ -137,7 +126,7 @@ const MonologueListPage = () => {
                 <ListGroup variant="flush">
                   {filteredMonologues.map((monologue) => (
                     <ListGroup.Item
-                      key={monologue.id}
+                      key={monologue.monologueNo}
                       className={`border-bottom py-3 ${
                         darkMode ? "text-light bg-dark" : ""
                       }`}
@@ -149,7 +138,7 @@ const MonologueListPage = () => {
                           {formatDate(monologue.createdAt)} |{" "}
                           {monologue.weather}
                         </small>
-                        {monologue.hasAttachment && (
+                        {monologue.attachmentNo && (
                           <Badge bg="secondary" pill>
                             첨부파일
                           </Badge>
@@ -161,7 +150,7 @@ const MonologueListPage = () => {
                           variant="outline-secondary"
                           size="sm"
                           as={Link}
-                          to={`/monologues/${monologue.id}`}
+                          to={`/monologues/${monologue.monologueNo}`}
                         >
                           상세보기
                         </Button>
@@ -169,7 +158,7 @@ const MonologueListPage = () => {
                           variant="outline-primary"
                           size="sm"
                           as={Link}
-                          to={`/monologues/edit/${monologue.id}`}
+                          to={`/monologues/edit/${monologue.monologueNo}`}
                         >
                           수정
                         </Button>

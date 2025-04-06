@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import axios from "axios";
 
 const WriteMonologuePage = () => {
   const [content, setContent] = useState("");
@@ -19,7 +20,7 @@ const WriteMonologuePage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
-
+  const { isLoggedIn } = useAuth();
   const { darkMode } = useTheme();
 
   // 날씨 데이터는 추후 실제 API 연동 시 구현
@@ -44,24 +45,46 @@ const WriteMonologuePage = () => {
 
     setIsLoading(true);
 
+    // FormData 객체 생성
+    const formData = new FormData();
+    formData.append("content", content);
+    if (file) {
+      formData.append("file", file);
+    }
+
     try {
-      // 여기에 실제 API 호출 코드가 들어갈 예정
-      console.log("혼잣말 저장:", { content, file });
+      // 로컬 스토리지에서 토큰 가져오기
+      const token = localStorage.getItem('accessToken');
+      
+      // 백엔드 서버 주소를 직접 지정하여 API 호출
+      const response = await axios.post("http://localhost:80/api/monologues/create", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          // 토큰이 있으면 Authorization 헤더에 추가
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+      });
 
-      // 일정 시간 후 성공 메시지 표시 (API 호출 성공 가정학ㅎ~)
+      console.log("API 응답:", response);
+
+      setSuccess("혼잣말이 성공적으로 저장되었습니다!");
+      setContent("");
+      setFile(null);
+
+      // 파일 입력 필드 초기화
+      const fileInput = document.getElementById("file-upload-page");
+      if (fileInput) fileInput.value = "";
+
+      // 2초 후 페이지 강제 리로드하여 목록 페이지로 이동
       setTimeout(() => {
-        setSuccess("혼잣말이 성공적으로 저장되었습니다!");
-        setContent("");
-        setFile(null);
-
-        // 파일 입력 필드 초기화 (직접 리셋이 불가능해서 이런 방식 사용)
-        const fileInput = document.getElementById("file-upload-page");
-        if (fileInput) fileInput.value = "";
-
-        setIsLoading(false);
-      }, 1000);
+        window.location.href = '/monologues';
+      }, 2000);
     } catch (err) {
-      setError("저장 중 오류가 발생했습니다. 다시 시도해주세요.");
+      console.error("혼잣말 저장 중 오류:", err);
+      setError(
+        err.response?.data || "저장 중 오류가 발생했습니다. 다시 시도해주세요."
+      );
+    } finally {
       setIsLoading(false);
     }
   };
@@ -117,7 +140,7 @@ const WriteMonologuePage = () => {
                   <Button
                     variant={darkMode ? "outline-light" : "secondary"}
                     className="me-2"
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/monologues")}
                   >
                     취소
                   </Button>

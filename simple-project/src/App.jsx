@@ -15,6 +15,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./App.css";
 import EditMonologuePage from "./pages/EditMonologuePage";
+import "/src/config/AxiosConfig.js";
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
@@ -36,11 +38,12 @@ function App() {
                   path="/monologues/random"
                   element={<RandomMonologuePage />}
                 />
-                <Route path="/monologues" element={<MonologueListPage />} />
-                <Route
-                  path="/monologues/:id"
-                  element={<MonologueDetailPage />}
-                />
+                
+                <Route path="/monologues" element={
+    <ErrorBoundary>
+      <MonologueListPage />
+    </ErrorBoundary>
+  } />
                 <Route
                   path="/monologues/edit/:id"
                   element={<EditMonologuePage />}
