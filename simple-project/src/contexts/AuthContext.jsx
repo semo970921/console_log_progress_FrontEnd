@@ -1,52 +1,64 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useContext, useEffect } from "react";
+import axios from "axios";
 
-// 인증 컨텍스트 생성
 const AuthContext = createContext();
 
-// 인증 제공자 컴포넌트
+export const useAuth = () => useContext(AuthContext);
+
 export const AuthProvider = ({ children }) => {
-  // 로컬 스토리지에서 로그인 상태 불러오기 또는 기본값 설정
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    const savedAuth = localStorage.getItem("isLoggedIn");
-    return savedAuth ? JSON.parse(savedAuth) : false;
-  });
-
-  // 사용자 데이터 (실제 서버 연동 시 확장)
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-
-
-  const login = (userData) => {
-    // 실제 구현에서는 서버 API 연동 필요
-    setIsLoggedIn(true);
-    setUser(
-      userData || {
-        name: "백엔드 API가 아직 준비되지않아...",
-        email: "test@google.com",
-      }
-    );
-  };
-
-
-  const logout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-  };
-
-  // 인증 상태가 변경될 때마다 로컬 스토리지에 저장
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // 초기 로드시 로컬 스토리지에서 토큰 확인
   useEffect(() => {
-    localStorage.setItem("isLoggedIn", JSON.stringify(isLoggedIn));
-    localStorage.setItem("user", JSON.stringify(user));
-  }, [isLoggedIn, user]);
+    const token = localStorage.getItem("accessToken");
+    const userEmail = localStorage.getItem("userEmail");
+    const userName = localStorage.getItem("userName");
+    
+    if (token && userEmail && userName) {
+      setCurrentUser({ email: userEmail, name: userName });
+      setIsLoggedIn(true);
+      
+      // axios 기본 헤더 설정
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    }
+  }, []);
+
+  // 로그인 함수
+  const login = (userData) => {
+    setCurrentUser(userData);
+    setIsLoggedIn(true);
+    
+    // 사용자 정보 로컬스토리지에 저장
+    localStorage.setItem("userEmail", userData.email);
+    localStorage.setItem("userName", userData.name);
+  };
+
+  // 로그아웃 함수
+  const logout = () => {
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    
+    // 로컬 스토리지 정리
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userName");
+    
+    // axios 헤더 제거
+    delete axios.defaults.headers.common["Authorization"];
+  };
+
+  const value = {
+    currentUser,
+    isLoggedIn,
+    login,
+    logout
+  };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-
-export const useAuth = () => useContext(AuthContext);
